@@ -2,18 +2,19 @@ import mysql.connector
 # Step 1: Connect to your MySQL database
 conn = mysql.connector.connect(
     host="localhost",
-    user="root",           # your MySQL username
-    password="root",  # the password you set during MySQL install
+    user="root",
+    password="root",
     database="banking_app"
 )
 cursor = conn.cursor()
 
-# Step 2: Create a table
+
 cursor.execute('''
     CREATE TABLE IF NOT EXISTS accounts (
         id INT PRIMARY KEY,
         name VARCHAR(100),
-        balance DECIMAL(10, 2)
+        balance DECIMAL(10, 2),
+        password VARCHAR(100)
     )
 ''')
 
@@ -28,55 +29,61 @@ cursor.execute('''
     )          
 ''')
 
-# Step 3: Insert data
-cursor.execute("")
-conn.commit()   # IMPORTANT: saves your changes!
 
-# Step 4: Query data
+cursor.execute("")
+conn.commit()
+
+
 cursor.execute("SELECT * FROM accounts")
 rows = cursor.fetchall()
 
 def input_name():
-    name = input("Enter your name: ")
+    name = input("\nEnter your name: ")
     for i in range(len(rows)):
         if rows[i][1] == name:
             global reference
             reference = i
             print("\nName found!\n")
             return True
-    print("\nPlease enter a name already in the database\n")
+    print("\nPlease enter a name already in the database")
 
 def input_password():
     password = input("Enter your password: ")
     for i in range(len(rows)):
         if rows[i][3] == password:
-            print("Login successful!")
+            print("\nLogin successful!")
             return True
-    print("Incorrect password, please try again.")
+    print("\nIncorrect password, please try again.\n")
     return False
 
 logged_in = False
 while logged_in != True:
-    print("1. Create Account\n2. Log in")
-
-    use_account = int(input("\nEnter your choice: "))
+    print("\n1. Create Account\n2. Log in")
+    try:
+        use_account = int(input("\nEnter your choice: "))
+    except ValueError:
+        print("\nPlease enter an integer.\n")
+        continue
 
     if use_account == 1:
-        create_username = input("Type in your name: ")
+        create_username = input("\nType in your name: ")
         create_password = input("Type in your password: ")
         initial_deposit = int(input("Type in your initial deposit: "))
         cursor.execute("INSERT INTO accounts (name, balance, password) VALUES (%s, %s, %s)",(create_username, initial_deposit, create_password))
         conn.commit()
         cursor.execute("SELECT * FROM accounts")
         rows = cursor.fetchall()
-        print("New account created!")
-        
+        print("\nNew account created!")
 
-    if use_account == 2:
+    elif use_account == 2:
         while logged_in != True:
             if input_name():
                 if input_password():
                     logged_in = True
+
+    else:
+        print("\nPlease enter a valid choice.\n")
+        continue
 
 python_balance = rows[reference][2]
 python_id = rows[reference][0]
@@ -87,50 +94,74 @@ if python_id == 10:
         print("\n=== Admin Panel ===")
         print("1. Remove Account")
         print("2. List Accounts in Database")
-        print("3. Check Transaction History")
+        print("3. Check Transaction History of All Accounts")
         print("4. Exit")
-        choice = int(input("\nEnter your choice: "))
+        try:
+            choice = int(input("\nEnter your choice: "))
+        except ValueError:
+            print("\nPlease enter an integer.")
+            continue
         if choice == 1:
-            account_to_remove = int(input("\nEnter the ID of the account you want to remove: "))
+            try:
+                account_to_remove = int(input("\nEnter the ID of the account you want to remove: "))
+            except ValueError:
+                print("\nPlease enter an integer.")
+                continue
+            cursor.execute("DELETE FROM transactions WHERE account_id = %s;",(account_to_remove,))
             cursor.execute("DELETE FROM accounts WHERE id = %s;",(account_to_remove,))
             conn.commit()
             print("\nAccount deleted!")
-        if choice == 2:
+        elif choice == 2:
             cursor.execute("SELECT * FROM accounts")
             rows = cursor.fetchall()
             for i in range(len(rows)):
                 print(f"\nID: {rows[i][0]}\nName: {rows[i][1]}\n")
-        if choice == 3:
+        elif choice == 3:
             cursor.execute("SELECT * FROM transactions")
             rows = cursor.fetchall()
             for i in range(len(rows)):
                 print(f"\nAccount ID: {rows[i][1]}\nType: {rows[i][2]}\nAmount: ${rows[i][3]:.2f}\nDate: {rows[i][4]}\n")
-        if choice == 4:
+        elif choice == 4:
             print("\nThank you for using the program!")
             logged_in = False
+        else:
+            print("\nPlease enter a valid choice.")
+            continue
 
 while logged_in == True:
     print("\n=== Banking App ===")
     print("1. Check Balance")
     print("2. Deposit")
     print("3. Withdraw")
-    print("4. Exit")
-    choice = int(input("Enter your choice: "))
-
+    print("4. Transaction History")
+    print("5. Exit")
+    try:
+        choice = int(input("\nEnter your choice: "))
+    except ValueError:
+        print("\nPlease enter an integer.\n")
+        continue
     if choice == 1:
-        print(f"Amount: ${python_balance}")
-    if choice == 2:
+        print(f"\nAmount: ${python_balance}")
+    elif choice == 2:
         status = "Deposit"
-        deposit_amount = int(input("\nPlease enter your deposit amount: "))
+        try:
+            deposit_amount = int(input("\nPlease enter your deposit amount: "))
+        except ValueError:
+            print("\nPlease enter an integer.\n")
+            continue
         python_balance += deposit_amount
         cursor.execute("UPDATE accounts SET balance=%s WHERE id=%s",(python_balance, python_id))
         conn.commit()
         cursor.execute("INSERT INTO transactions (account_id, type, amount) VALUES (%s, %s, %s)",(python_id, status, deposit_amount))
         conn.commit()
         print(f"\nDone! Deposit added\nBalance now: ${python_balance}")
-    if choice == 3:
+    elif choice == 3:
         status = "Withdrawal"
-        withdraw_amount = int(input("Please enter your withdraw amount: "))
+        try:
+            withdraw_amount = int(input("\nPlease enter your withdraw amount: "))
+        except ValueError:
+            print("\nPlease enter an integer.\n")
+            continue
         if withdraw_amount > python_balance:
             print("\nYour withdraw amount is too high! Please enter a lower withdraw amount.")
             continue
@@ -140,11 +171,17 @@ while logged_in == True:
         cursor.execute("INSERT INTO transactions (account_id, type, amount) VALUES (%s, %s, %s)",(python_id, status, withdraw_amount))
         conn.commit()
         print(f"\nDone! Withdraw added\nBalance now: ${python_balance}")
-    if choice == 4:
-        print("Thank you for using the program! ")
+    elif choice == 4:
+        cursor.execute("SELECT type, amount, timestamp FROM transactions WHERE (account_id = %s)", (python_id,))
+        rows = cursor.fetchall()
+        for i in range(len(rows)):
+            print(f"\nType: {rows[i][0]}\nAmount: ${rows[i][1]:.2f}\nDate: {rows[i][2]}\n")
+    elif choice == 5:
+        print("\nThank you for using the program! ")
         logged_in = False
-    
+    else:
+        print("\nPlease enter a valid choice.\n")
+        continue
 
-# Always close when done
 conn.close()
 
